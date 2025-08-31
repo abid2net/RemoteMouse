@@ -1,0 +1,227 @@
+import 'package:flutter/material.dart';
+import 'package:socket_io_client/socket_io_client.dart';
+import 'main.dart';
+
+class TouchpadScreen extends StatefulWidget {
+  final String ipAddress;
+
+  const TouchpadScreen({super.key, required this.ipAddress});
+
+  @override
+  State createState() => _TouchpadScreenState();
+}
+
+class _TouchpadScreenState extends State<TouchpadScreen> {
+  late Socket socket;
+  final double tapMaxDistance =
+      20; // Maximum distance in pixels for a tap to be considered
+
+  Offset? tapPosition;
+  bool isDoubleTap = false;
+
+  void disconnect() {
+    socket.disconnect();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (BuildContext context) => const MouseControllerApp(),
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    connectToServer();
+  }
+
+  void connectToServer() {
+    socket = io(
+      'http://${widget.ipAddress}:7171',
+      OptionBuilder().setTransports(['websocket']).enableAutoConnect().build(),
+    );
+    socket.onConnect((_) {
+      print('Connected');
+    });
+  }
+
+  void sendMouseEvent(String event, int dx, int dy) {
+    socket.emit('mouseEvent', {'event': event, 'dx': dx, 'dy': dy});
+  }
+
+  void sendMouseAction(String action) {
+    socket.emit('mouseAction', {'action': action});
+  }
+
+  void handleTapUp(TapUpDetails details) {
+    if (isDoubleTap) {
+      sendMouseAction('right_click');
+      isDoubleTap = false;
+    } else {
+      tapPosition = details.globalPosition;
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (tapPosition != null) {
+          final dx = (details.globalPosition.dx - tapPosition!.dx).abs();
+          final dy = (details.globalPosition.dy - tapPosition!.dy).abs();
+          if (dx <= tapMaxDistance && dy <= tapMaxDistance) {
+            sendMouseAction('left_click');
+          }
+        }
+        tapPosition = null;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        centerTitle: true,
+        backgroundColor: Colors.black,
+        title: const Text(
+          'Remote Mouse',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color.fromARGB(255, 65, 227, 168),
+          ),
+        ),
+        actions: [
+          IconButton(onPressed: disconnect, icon: const Icon(Icons.logout)),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Center(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapUp: handleTapUp,
+                onDoubleTap: () {
+                  isDoubleTap = true;
+                  sendMouseAction('right_click');
+                },
+                onPanUpdate: (details) {
+                  int dx = details.delta.dx.round();
+                  int dy = details.delta.dy.round();
+                  sendMouseEvent('move', dx, dy);
+                },
+                child: Container(
+                  color: const Color.fromARGB(255, 31, 31, 31),
+                  child: const Stack(
+                    children: [
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        child: Opacity(
+                          opacity: 0.50,
+                          child: Icon(
+                            color: Color.fromARGB(255, 65, 227, 168),
+                            Icons.rounded_corner,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 10,
+                        right: 10,
+                        child: Opacity(
+                          opacity: 0.50,
+                          child: Icon(
+                            color: Color.fromARGB(255, 65, 227, 168),
+                            Icons.rounded_corner,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 10,
+                        left: 10,
+                        child: Opacity(
+                          opacity: 0.50,
+                          child: Icon(
+                            color: Color.fromARGB(255, 65, 227, 168),
+                            Icons.rounded_corner,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 10,
+                        right: 10,
+                        child: Opacity(
+                          opacity: 0.50,
+                          child: Icon(
+                            color: Color.fromARGB(255, 65, 227, 168),
+                            Icons.rounded_corner,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Opacity(
+                              opacity: 0.50,
+                              child: Icon(
+                                color: Color.fromARGB(255, 65, 227, 168),
+                                Icons.touch_app,
+                                size: 50,
+                              ),
+                            ),
+                            Opacity(
+                              opacity: 0.50,
+                              child: Text(
+                                'TOUCHPAD!',
+                                style: TextStyle(
+                                  fontSize: 30,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color.fromARGB(255, 65, 227, 168),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Container(
+            color: Colors.black,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    sendMouseAction('left_click');
+                  },
+                  style: ButtonStyle(
+                    backgroundColor: WidgetStateProperty.all<Color>(
+                      const Color.fromARGB(255, 59, 179, 135),
+                    ),
+                  ),
+                  child: const Text('Left Click'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    sendMouseAction('right_click');
+                  },
+                  style: ButtonStyle(
+                    backgroundColor: WidgetStateProperty.all<Color>(
+                      const Color.fromARGB(255, 59, 179, 135),
+                    ),
+                  ),
+                  child: const Text('Right Click'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
