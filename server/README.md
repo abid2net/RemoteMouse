@@ -23,6 +23,12 @@ npm install -g node-gyp
 node-gyp rebuild
 ```
 
+Optional: If you face any error in gyp rebuild, then try 
+
+```
+npm i node-pre-gyp rebuild
+```
+
 2. Navigate to the project directory:
 ```
 cd Remote mouse-server
